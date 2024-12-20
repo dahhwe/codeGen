@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Upload File</title>
+</head>
+<body>
+<h1>Upload File</h1>
+<form method="post" action="{% url 'file-upload' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="file">
+    <button type="submit">Upload</button>
+</form>
+</body>
+</html>
