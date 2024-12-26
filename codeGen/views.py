@@ -3,14 +3,34 @@ import uuid
 
 from django.conf import settings
 from django.http import HttpResponse
+from django.http import JsonResponse
 from django.middleware.csrf import get_token
+from django.utils.decorators import method_decorator
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .minio_client import minio_client
+from .models import CustomUser
 from .permissions import IsAdminUser
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class CreateUserView(View):
+    def post(self, request):
+        email = request.POST.get('email')
+        firstname = request.POST.get('firstname')
+        lastname = request.POST.get('lastname')
+        password = request.POST.get('password')
+
+        if not email or not firstname or not lastname or not password:
+            return JsonResponse({'error': 'Missing required fields'}, status=400)
+
+        user = CustomUser.objects.create_user(email=email, firstname=firstname, lastname=lastname, password=password)
+        return JsonResponse({'message': 'User created successfully', 'user_id': user.id}, status=201)
 
 
 class FileUploadView(APIView):
