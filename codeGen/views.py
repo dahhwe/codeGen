@@ -1,7 +1,9 @@
+import json
 import logging
 import uuid
 
 from django.conf import settings
+from django.contrib.auth import authenticate, login
 from django.http import HttpResponse
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
@@ -9,6 +11,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,13 +21,32 @@ from .models import CustomUser
 from .permissions import IsAdminUser
 
 
+class UserLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email')
+        password = request.data.get('password')
+        user = authenticate(request, username=email, password=password)
+        if user is not None:
+            login(request, user)
+            return JsonResponse({"message": "Login successful"}, status=status.HTTP_200_OK)
+        else:
+            return JsonResponse({"error": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class CreateUserView(View):
     def post(self, request):
-        email = request.POST.get('email')
-        firstname = request.POST.get('firstname')
-        lastname = request.POST.get('lastname')
-        password = request.POST.get('password')
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+        email = data.get('email')
+        firstname = data.get('firstname')
+        lastname = data.get('lastname')
+        password = data.get('password')
 
         if not email or not firstname or not lastname or not password:
             return JsonResponse({'error': 'Missing required fields'}, status=400)

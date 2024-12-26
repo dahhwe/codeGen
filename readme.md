@@ -42,3 +42,23 @@
 ```bash
 curl -X POST -F "file=@path/to/your/file" http://localhost:8000/upload/
 ```
+
+### Вход пользователя
+
+**POST** `http://localhost:8000/login/`
+
+Тело запроса должно содержать JSON с полями `email` и `password`. Пример запроса с использованием `curl`:
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"email": "user@example.com", "password": "yourpassword"}' http://localhost:8000/login/
+```
+
+### Регистрация пользователя
+
+**POST** `http://localhost:8000/create_user/`
+
+Тело запроса должно содержать JSON с полями `email`, `firstname`, `lastname` и `password`. Пример запроса с использованием `curl`:
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"email": "user@example.com", "firstname": "John", "lastname": "Doe", "password": "yourpassword"}' http://localhost:8000/create_user/
+```

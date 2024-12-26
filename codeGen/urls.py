@@ -1,10 +1,10 @@
-from django.contrib import admin
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from .views import FileUploadView, FileDownloadView, AdminOnlyView, CreateUserView
+from .views import FileUploadView, FileDownloadView, AdminOnlyView, CreateUserView, UserLoginView
 
 urlpatterns = [
+    path('login/', UserLoginView.as_view(), name='user-login'),
     path('create_user/', CreateUserView.as_view(), name='create_user'),
 
     # path('admin/', admin.site.urls),
