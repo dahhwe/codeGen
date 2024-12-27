@@ -1,16 +1,14 @@
-
 # Проект codeGen
 
 ## Установка и настройка MinIO
 
 1. Скачайте и установите MinIO с [официального сайта](https://min.io/download).
-2. Запустите MinIO
+2. Запустите MinIO.
 3. Откройте браузер и перейдите по адресу `http://127.0.0.1:9000`.
 4. Введите `minioadmin` в качестве имени пользователя и пароля для входа.
 5. Создайте новый бакет с именем `codegen`.
 
 ## Запуск проекта
-
 
 1. Примените миграции:
    ```bash
@@ -27,38 +25,95 @@
 
 ## Конечные точки (Endpoints)
 
-### Доступ только для администратора
+### Авторизация пользователя
 
-**GET** `http://localhost:8000/admin-only/`
+**POST** `/login/`
 
-Эта конечная точка доступна только для администратора. Используйте учетные данные администратора для доступа.
-
-### Загрузка файла
-
-**POST** `http://localhost:8000/upload/`
-
-Тело запроса должно содержать файл с ключом `file`. Пример запроса с использованием `curl`:
-
-```bash
-curl -X POST -F "file=@path/to/your/file" http://localhost:8000/upload/
-```
-
-### Вход пользователя
-
-**POST** `http://localhost:8000/login/`
-
-Тело запроса должно содержать JSON с полями `email` и `password`. Пример запроса с использованием `curl`:
-
-```bash
-curl -X POST -H "Content-Type: application/json" -d '{"email": "user@example.com", "password": "yourpassword"}' http://localhost:8000/login/
-```
+- **Описание:** Авторизация пользователя.
+- **Тело запроса:**
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "yourpassword"
+  }
+  ```
+- **Пример cURL:**
+  ```bash
+  curl -X POST -H "Content-Type: application/json" -d '{"email": "user@example.com", "password": "yourpassword"}' http://localhost:8000/login/
+  ```
 
 ### Регистрация пользователя
 
-**POST** `http://localhost:8000/create_user/`
+**POST** `/create_user/`
 
-Тело запроса должно содержать JSON с полями `email`, `firstname`, `lastname` и `password`. Пример запроса с использованием `curl`:
+- **Описание:** Регистрация нового пользователя.
+- **Тело запроса:**
+  ```json
+  {
+    "email": "user@example.com",
+    "firstname": "John",
+    "lastname": "Doe",
+    "password": "yourpassword"
+  }
+  ```
+- **Пример cURL:**
+  ```bash
+  curl -X POST -H "Content-Type: application/json" -d '{"email": "user@example.com", "firstname": "John", "lastname": "Doe", "password": "yourpassword"}' http://localhost:8000/create_user/
+  ```
 
-```bash
-curl -X POST -H "Content-Type: application/json" -d '{"email": "user@example.com", "firstname": "John", "lastname": "Doe", "password": "yourpassword"}' http://localhost:8000/create_user/
-```
+### Загрузка файла
+
+**POST** `/upload/`
+
+- **Описание:** Загрузка файла и создание проекта.
+- **Тело запроса:** Файл с ключом `file`, а также поля:
+  ```json
+  {
+    "project_name": "Project Name",
+    "description": "Project Description",
+    "project_type": "Type",
+    "status": "Status"
+  }
+  ```
+- **Пример cURL:**
+  ```bash
+  curl -X POST -F "file=@path/to/your/file" -F "project_name=Project Name" -F "description=Project Description" -F "project_type=Type" -F "status=Status" http://localhost:8000/upload/
+  ```
+
+### Скачивание файла
+
+**GET** `/download/<file_id>/<file_name>/`
+
+- **Описание:** Скачивание файла по идентификатору и имени файла.
+- **Пример cURL:**
+  ```bash
+  curl -X GET http://localhost:8000/download/<file_id>/<file_name>/ --output <local_file_name>
+  ```
+
+### Просмотр проектов пользователя
+
+**GET** `/user_projects/<email>/`
+
+- **Описание:** Получение списка проектов пользователя по его email.
+- **Пример cURL:**
+  ```bash
+  curl -X GET http://localhost:8000/user_projects/user@example.com/
+  ```
+
+### Доступ только для администратора
+
+**GET** `/admin-only/`
+
+- **Описание:** Информация доступна только администраторам.
+- **Пример cURL:**
+  ```bash
+  curl -X GET http://localhost:8000/admin-only/
+  ```
+
+### Документация API
+
+- **JSON-схема API:**
+  **GET** `/api/schema/`
+- **Swagger UI:**
+  **GET** `/api/docs/`
+
