@@ -15,8 +15,35 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .minio_client import minio_client
-from .models import CustomUser, Project
+from .models import CustomUser
+from .models import Project
 from .permissions import IsAdminUser
+
+
+class ProcessTemplateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        project_id = request.query_params.get('project_id')
+        if not project_id:
+            return Response({'error': 'Project ID is required'}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id, user=request.user)
+        except Project.DoesNotExist:
+            return Response({'error': 'Project not found'}, status=404)
+
+        file_name = project.file_name
+        bucket_name = 'codegen'
+
+        response = minio_client.get_object(bucket_name, file_name)
+        response_data = response.read()
+        response.close()
+        response.release_conn()
+
+        response = HttpResponse(response_data, content_type='application/octet-stream')
+        response['Content-Disposition'] = f'attachment; filename="{file_name.split("/")[-1]}"'
+        return response
 
 
 class UserProjectsView(APIView):
