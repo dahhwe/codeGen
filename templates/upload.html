@@ -7,7 +7,21 @@
 <h1>Upload File</h1>
 <form method="post" action="{% url 'file-upload' %}" enctype="multipart/form-data">
     {% csrf_token %}
-    <input type="file" name="file">
+    <label for="project_name">Project Name:</label>
+    <input type="text" id="project_name" name="project_name" required><br><br>
+
+    <label for="description">Description:</label>
+    <textarea id="description" name="description" required></textarea><br><br>
+
+    <label for="project_type">Project Type:</label>
+    <input type="text" id="project_type" name="project_type" required><br><br>
+
+    <label for="status">Status:</label>
+    <input type="text" id="status" name="status" required><br><br>
+
+    <label for="file">File:</label>
+    <input type="file" id="file" name="file" required><br><br>
+
     <button type="submit">Upload</button>
 </form>
 </body>

@@ -6,10 +6,8 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login
 from django.http import HttpResponse
 from django.http import JsonResponse
-from django.middleware.csrf import get_token
-from django.utils.decorators import method_decorator
+from django.shortcuts import get_object_or_404
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
@@ -17,8 +15,29 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .minio_client import minio_client
-from .models import CustomUser
+from .models import CustomUser, Project
 from .permissions import IsAdminUser
+
+
+class UserProjectsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, email):
+        user = get_object_or_404(CustomUser, email=email)
+        projects = Project.objects.filter(user=user)
+        projects_data = [
+            {
+                'project_name': project.project_name,
+                'description': project.description,
+                'project_type': project.project_type,
+                'status': project.status,
+                'file_name': project.file_name,
+                'file_id': project.file_id,
+                'created_at': project.created_at,
+            }
+            for project in projects
+        ]
+        return Response(projects_data)
 
 
 class UserLoginView(APIView):
@@ -35,7 +54,6 @@ class UserLoginView(APIView):
             return JsonResponse({"error": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
 class CreateUserView(View):
     def post(self, request):
         try:
@@ -62,7 +80,6 @@ class FileUploadView(APIView):
         logging.debug(f"Request FILES: {request.FILES}")
         logging.debug(f"Request data: {request.data}")
         logging.debug(f"Request headers: {request.headers}")
-        logging.debug(f"CSRF token: {get_token(request)}")
 
         if 'file' not in request.FILES:
             logging.error("No file provided in the request")
@@ -79,7 +96,25 @@ class FileUploadView(APIView):
             length=file.size
         )
 
-        return Response({'file_id': file_id, 'file_name': file_name})
+        project_name = request.data.get('project_name')
+        description = request.data.get('description')
+        project_type = request.data.get('project_type')
+        project_status = request.data.get('status')
+
+        if not project_name or not description or not project_type or not project_status:
+            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+
+        project = Project.objects.create(
+            user=request.user,
+            project_name=project_name,
+            description=description,
+            project_type=project_type,
+            status=project_status,
+            file_name=file_name,
+            file_id=file_id
+        )
+
+        return Response({'file_id': file_id, 'file_name': file_name, 'project_id': project.id})
 
 
 class FileDownloadView(APIView):
@@ -101,4 +136,4 @@ class AdminOnlyView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        return Response({'message': 'Информация для администратора'})
+        return Response({'message': 'Информация для а��министратора'})

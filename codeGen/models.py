@@ -1,6 +1,19 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
+
+
+class Project(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    project_name = models.CharField(max_length=255)
+    description = models.TextField()
+    project_type = models.CharField(max_length=255)
+    status = models.CharField(max_length=255)
+    file_name = models.CharField(max_length=255)
+    file_id = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class CustomUserManager(BaseUserManager):
