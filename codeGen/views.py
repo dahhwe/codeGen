@@ -13,13 +13,36 @@ from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 from .minio_client import minio_client
 from .models import CustomUser
 from .models import Project
 from .permissions import IsAdminUser
 
+from rest_framework.authtoken.models import Token
+from django.contrib.auth import get_user_model
 
+@method_decorator(csrf_exempt, name='dispatch')
+class UserLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get("email")
+        password = request.data.get("password")
+        user = authenticate(request, username=email, password=password)
+
+        if user is not None:
+            login(request, user)
+            Token.objects.filter(user=user).delete()  # Delete any existing token
+            token = Token.objects.create(user=user)
+            return Response({"message": "Login successful", "token": token.key}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
 class ProcessTemplateView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -46,9 +69,10 @@ class ProcessTemplateView(APIView):
         return response
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class UserProjectsView(APIView):
     permission_classes = [IsAuthenticated]
-
+    
     def get(self, request, email):
         user = get_object_or_404(CustomUser, email=email)
         projects = Project.objects.filter(user=user)
@@ -66,40 +90,26 @@ class UserProjectsView(APIView):
         ]
         return Response(projects_data)
 
-
-class UserLoginView(APIView):
+@method_decorator(csrf_exempt, name='dispatch')
+class CreateUserView(APIView):
     permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
-        email = request.data.get('email')
-        password = request.data.get('password')
-        user = authenticate(request, username=email, password=password)
-        if user is not None:
-            login(request, user)
-            return JsonResponse({"message": "Login successful"}, status=status.HTTP_200_OK)
-        else:
-            return JsonResponse({"error": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CreateUserView(View):
     def post(self, request):
-        try:
-            data = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON'}, status=400)
-
-        email = data.get('email')
-        firstname = data.get('firstname')
-        lastname = data.get('lastname')
-        password = data.get('password')
+        email = request.data.get('email')
+        firstname = request.data.get('firstname')
+        lastname = request.data.get('lastname')
+        password = request.data.get('password')
 
         if not email or not firstname or not lastname or not password:
-            return JsonResponse({'error': 'Missing required fields'}, status=400)
+            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = CustomUser.objects.create_user(email=email, firstname=firstname, lastname=lastname, password=password)
-        return JsonResponse({'message': 'User created successfully', 'user_id': user.id}, status=201)
+        user = get_user_model().objects.create_user(email=email, firstname=firstname, lastname=lastname, password=password)
+        Token.objects.filter(user=user).delete()  # Delete any existing token
+        token = Token.objects.create(user=user)
 
+        return Response({'message': 'User created successfully', 'user_id': user.id, 'token': token.key}, status=status.HTTP_201_CREATED)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class FileUploadView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -144,6 +154,7 @@ class FileUploadView(APIView):
         return Response({'file_id': file_id, 'file_name': file_name, 'project_id': project.id})
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class FileDownloadView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -159,8 +170,9 @@ class FileDownloadView(APIView):
         return response
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class AdminOnlyView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        return Response({'message': 'Информация для а��министратора'})
+        return Response({'message': 'Информация для аминистратора'})
