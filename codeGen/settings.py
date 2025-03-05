@@ -29,18 +29,21 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    # 'django.contrib.admin',
+    'corsheaders',
+    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
     'drf_spectacular',
     'codeGen',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -76,7 +79,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'codegen_db',
         'USER': 'postgres',
-        'PASSWORD': 'postgres',
+        'PASSWORD': 'vbpouz75',
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -124,7 +127,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'codeGen.CustomUser'
 
 # MinIO configuration
-MINIO_ENDPOINT = '192.168.1.47:9000'
+MINIO_ENDPOINT = '127.0.0.1:9000'
 MINIO_ACCESS_KEY = 'minioadmin'
 MINIO_SECRET_KEY = 'minioadmin'
 MINIO_USE_SSL = False
@@ -135,11 +138,12 @@ MINIO_BUCKET_NAME = 'codegen'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-        # 'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True

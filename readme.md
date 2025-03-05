@@ -11,14 +11,19 @@
 ## Запуск проекта
 
 1. Примените миграции:
+
    ```bash
    python manage.py migrate
    ```
+
 2. Создайте пользователей:
+
    ```bash
    python codeGen/create_users.py
    ```
+
 3. Запустите сервер:
+
    ```bash
    python manage.py runserver
    ```
@@ -31,13 +36,16 @@
 
 - **Описание:** Авторизация пользователя.
 - **Тело запроса:**
+
   ```json
   {
     "email": "user@example.com",
     "password": "yourpassword"
   }
   ```
+
 - **Пример cURL:**
+
   ```bash
   curl -X POST -H "Content-Type: application/json" -d '{"email": "user@example.com", "password": "yourpassword"}' http://localhost:8000/login/
   ```
@@ -48,6 +56,7 @@
 
 - **Описание:** Регистрация нового пользователя.
 - **Тело запроса:**
+
   ```json
   {
     "email": "user@example.com",
@@ -56,7 +65,9 @@
     "password": "yourpassword"
   }
   ```
+
 - **Пример cURL:**
+
   ```bash
   curl -X POST -H "Content-Type: application/json" -d '{"email": "user@example.com", "firstname": "John", "lastname": "Doe", "password": "yourpassword"}' http://localhost:8000/create_user/
   ```
@@ -67,6 +78,7 @@
 
 - **Описание:** Загрузка файла и создание проекта.
 - **Тело запроса:** Файл с ключом `file`, а также поля:
+
   ```json
   {
     "project_name": "Project Name",
@@ -75,7 +87,9 @@
     "status": "Status"
   }
   ```
+
 - **Пример cURL:**
+
   ```bash
   curl -X POST -F "file=@path/to/your/file" -F "project_name=Project Name" -F "description=Project Description" -F "project_type=Type" -F "status=Status" http://localhost:8000/upload/
   ```
@@ -86,6 +100,7 @@
 
 - **Описание:** Скачивание файла по идентификатору и имени файла.
 - **Пример cURL:**
+
   ```bash
   curl -X GET http://localhost:8000/download/<file_id>/<file_name>/ --output <local_file_name>
   ```
@@ -96,6 +111,7 @@
 
 - **Описание:** Получение списка проектов пользователя по его email.
 - **Пример cURL:**
+
   ```bash
   curl -X GET http://localhost:8000/user_projects/user@example.com/
   ```
@@ -106,6 +122,7 @@
 
 - **Описание:** Информация доступна только администраторам.
 - **Пример cURL:**
+
   ```bash
   curl -X GET http://localhost:8000/admin-only/
   ```
@@ -116,4 +133,3 @@
   **GET** `/api/schema/`
 - **Swagger UI:**
   **GET** `/api/docs/`
-
