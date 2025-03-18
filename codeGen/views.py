@@ -1,28 +1,31 @@
+import io
 import json
 import logging
 import uuid
+import zipfile
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login
-from django.http import HttpResponse
-from django.http import JsonResponse
+from django.contrib.auth import get_user_model
+from django.http import HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
-from django.views import View
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from py_templating_engine.environment.templates_environment import TemplatesEnvironment
 from rest_framework import status
+from rest_framework.authtoken.models import Token
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 
 from .minio_client import minio_client
 from .models import CustomUser
 from .models import Project
 from .permissions import IsAdminUser
 
-from rest_framework.authtoken.models import Token
-from django.contrib.auth import get_user_model
 
 @method_decorator(csrf_exempt, name='dispatch')
 class UserLoginView(APIView):
@@ -37,6 +40,7 @@ class UserLoginView(APIView):
             login(request, user)
             Token.objects.filter(user=user).delete()  # Delete any existing token
             token = Token.objects.create(user=user)
+            print(token.key)
             return Response({"message": "Login successful", "token": token.key}, status=status.HTTP_200_OK)
         else:
             return Response({"error": "Invalid email or password"}, status=status.HTTP_400_BAD_REQUEST)
@@ -45,34 +49,74 @@ class UserLoginView(APIView):
 @method_decorator(csrf_exempt, name='dispatch')
 class ProcessTemplateView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
-    def get(self, request):
-        project_id = request.query_params.get('project_id')
-        if not project_id:
-            return Response({'error': 'Project ID is required'}, status=400)
+    def post(self, request):
+        template_id = request.query_params.get("template_id")
+        if not template_id:
+            return Response({"error": "Template ID is required in query parameters"}, status=400)
+
+        context_file = request.FILES.get("context")
+        if not context_file:
+            return Response({"error": "Context file is required"}, status=400)
 
         try:
-            project = Project.objects.get(id=project_id, user=request.user)
+            context_data = json.load(io.TextIOWrapper(context_file, encoding='utf-8'))
+
+            project = Project.objects.get(id=template_id)
+            template_path = project.file_name
+            bucket_name = 'codegen'
+
+            template_response = minio_client.get_object(bucket_name, template_path)
+            template_data = template_response.read()
+            template_response.close()
+            template_response.release_conn()
+
+            template_dir = Path("/tmp/template_processing")
+            template_dir.mkdir(parents=True, exist_ok=True)
+            template_file_path = template_dir / Path(template_path).name
+
+            with open(template_file_path, "wb") as f:
+                f.write(template_data)
+
+            context_file_path = template_dir / "context.json"
+            with open(context_file_path, "w", encoding='utf-8') as f:
+                json.dump(context_data, f)
+
+            templates_env = TemplatesEnvironment(template_dir)
+
+            output_dir = templates_env.render_project(str(context_file_path))
+
+            return self.stream_zip(output_dir)
+
         except Project.DoesNotExist:
-            return Response({'error': 'Project not found'}, status=404)
+            return Response({"error": "Template not found"}, status=404)
+        except json.JSONDecodeError:
+            return Response({"error": "Invalid JSON format in context file"}, status=400)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
 
-        file_name = project.file_name
-        bucket_name = 'codegen'
+    def stream_zip(self, output_dir):
+        def zip_generator():
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for file in output_dir.rglob("*"):
+                    if file.is_file():
+                        arcname = file.relative_to(output_dir)
+                        zip_file.write(file, arcname=arcname)
+                        yield zip_buffer.getvalue()
+                        zip_buffer.seek(0)
+                        zip_buffer.truncate()
 
-        response = minio_client.get_object(bucket_name, file_name)
-        response_data = response.read()
-        response.close()
-        response.release_conn()
-
-        response = HttpResponse(response_data, content_type='application/octet-stream')
-        response['Content-Disposition'] = f'attachment; filename="{file_name.split("/")[-1]}"'
+        response = StreamingHttpResponse(zip_generator(), content_type="application/zip")
+        response["Content-Disposition"] = 'attachment; filename="processed_template.zip"'
         return response
 
 
 @method_decorator(csrf_exempt, name='dispatch')
 class UserProjectsView(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request, email):
         user = get_object_or_404(CustomUser, email=email)
         projects = Project.objects.filter(user=user)
@@ -90,6 +134,7 @@ class UserProjectsView(APIView):
         ]
         return Response(projects_data)
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class CreateUserView(APIView):
     permission_classes = [AllowAny]
@@ -103,11 +148,14 @@ class CreateUserView(APIView):
         if not email or not firstname or not lastname or not password:
             return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = get_user_model().objects.create_user(email=email, firstname=firstname, lastname=lastname, password=password)
+        user = get_user_model().objects.create_user(email=email, firstname=firstname, lastname=lastname,
+                                                    password=password)
         Token.objects.filter(user=user).delete()  # Delete any existing token
         token = Token.objects.create(user=user)
 
-        return Response({'message': 'User created successfully', 'user_id': user.id, 'token': token.key}, status=status.HTTP_201_CREATED)
+        return Response({'message': 'User created successfully', 'user_id': user.id, 'token': token.key},
+                        status=status.HTTP_201_CREATED)
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class FileUploadView(APIView):
