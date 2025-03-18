@@ -1,5 +1,5 @@
 """
-ASGI config for codeGen project.
+ASGI config for code_gen project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'codeGen.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'code_gen.settings')
 
 application = get_asgi_application()
