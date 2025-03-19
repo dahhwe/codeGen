@@ -8,6 +8,14 @@
 4. Введите `minioadmin` в качестве имени пользователя и пароля для входа.
 5. Создайте новый бакет с именем `codegen`.
 
+## Созданиe виртуального окружения Python
+
+``` bash
+uv venv --python 3.13 --prompt code_gen --seed 
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
 ## Запуск проекта
 
 1. Примените миграции:
@@ -22,10 +30,18 @@
    python codeGen/create_users.py
    ```
 
-3. Запустите сервер:
+3. Добавьте в `/etc/hosts` следующее:
+
+  ```bash
+  127.0.0.1 postgres
+  127.0.0.1 mailpit
+  127.0.0.1 s3.minio.localhost
+  ```
+
+4. Поднимите проект:
 
    ```bash
-   python manage.py runserver
+   docker compose up
    ```
 
 ## Конечные точки (Endpoints)
