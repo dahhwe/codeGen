@@ -6,7 +6,9 @@ from .views import (
     CreateUserView,
     UploadTemplateView,
     DownloadTemplateView,
-    AdminOnlyView
+    AdminOnlyView,
+    ListTemplatesView,
+    GetTemplateJsonView
 )
 
 urlpatterns = [
@@ -17,4 +19,6 @@ urlpatterns = [
     path('upload-template/', UploadTemplateView.as_view(), name='upload-template'),
     path('download-template/<int:project_id>/', DownloadTemplateView.as_view(), name='download-template'),
     path('admin-only/', AdminOnlyView.as_view(), name='admin-only'),
+    path('list-templates/', ListTemplatesView.as_view(), name='list-templates'),
+    path('get-template-json/<int:project_id>/', GetTemplateJsonView.as_view(), name='get-template-json'),
 ]
