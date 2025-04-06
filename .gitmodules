@@ -1,0 +1,3 @@
+[submodule "py_templating_engine"]
+	path = py_templating_engine
+	url = https://github.com/NikTerentev/py_templating_engine.git
