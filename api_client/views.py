@@ -47,7 +47,6 @@ class UserLoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
-        import ipdb;ipdb
         email = request.data.get("email")
         password = request.data.get("password")
         user = authenticate(request, username=email, password=password)
@@ -235,12 +234,17 @@ class CreateUserView(APIView):
                     'format': 'binary',
                     'description': 'Архив шаблона'
                 },
+                'json_file': {
+                    'type': 'string',
+                    'format': 'binary',
+                    'description': 'JSON файл для шаблона'
+                },
                 'project_name': {'type': 'string'},
                 'description': {'type': 'string'},
                 'project_type': {'type': 'string'},
                 'status': {'type': 'string'},
             },
-            'required': ['file', 'project_name', 'description', 'project_type', 'status'],
+            'required': ['file', 'json_file', 'project_name', 'description', 'project_type', 'status'],
         }
     },
     responses={200: None, 400: None},
@@ -250,17 +254,25 @@ class UploadTemplateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if 'file' not in request.FILES:
-            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        if 'file' not in request.FILES or 'json_file' not in request.FILES:
+            return Response({'error': 'Both archive and JSON file must be provided'}, status=status.HTTP_400_BAD_REQUEST)
 
         file = request.FILES['file']
+        json_file = request.FILES['json_file']
 
         # Проверка, что файл является архивом
         if not zipfile.is_zipfile(file):
             return Response({'error': 'Provided file is not a valid archive'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Сбрасываем позицию файла в начало
+        # Проверка, что JSON файл действительно JSON
+        try:
+            json_data = json.load(json_file)
+        except json.JSONDecodeError:
+            return Response({'error': 'Provided file is not a valid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Сбрасываем позицию файлов в начало
         file.seek(0)
+        json_file.seek(0)
 
         project_name = request.data.get('project_name')
         description = request.data.get('description')
@@ -279,12 +291,20 @@ class UploadTemplateView(APIView):
             file_name=file.name  # Сохраняем только имя файла
         )
 
-        # Загружаем файл в MinIO
+        # Загружаем архив в MinIO
         minio_client.put_object(
             settings.MINIO_BUCKET_NAME,
             str(project.id),  # Используем project_id как имя объекта
             file,
             length=file.size
+        )
+
+        # Загружаем JSON в MinIO
+        minio_client.put_object(
+            settings.MINIO_BUCKET_NAME,
+            f"{project.id}_context.json",
+            json_file,
+            length=json_file.size
         )
 
         return Response({
@@ -339,3 +359,60 @@ class AdminOnlyView(APIView):
 
     def get(self, request):
         return Response({'message': 'Информация для аминистратора'})
+
+@extend_schema(
+    summary="Получение списка всех шаблонов",
+    description="Возвращает список всех шаблонов, загруженных в систему",
+    responses={200: None, 404: None},
+)
+@method_decorator(csrf_exempt, name='dispatch')
+class ListTemplatesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        projects = Project.objects.all()
+        templates_data = [
+            {
+                'project_id': project.id,
+                'project_name': project.project_name,
+                'description': project.description,
+                'project_type': project.project_type,
+                'status': project.status,
+                'file_name': project.file_name,
+                'created_at': project.created_at,
+            }
+            for project in projects
+        ]
+        return Response(templates_data)
+
+@extend_schema(
+    summary="Получение JSON файла по ID шаблона",
+    description="Возвращает JSON файл, загруженный для указанного шаблона",
+    parameters=[
+        OpenApiParameter(
+            name="project_id",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.PATH,
+            description="ID проекта",
+            required=True,
+        ),
+    ],
+    responses={200: None, 404: None},
+)
+@method_decorator(csrf_exempt, name='dispatch')
+class GetTemplateJsonView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, project_id):
+        try:
+            project = Project.objects.get(id=project_id)
+            response = minio_client.get_object(settings.MINIO_BUCKET_NAME, f"{project.id}_context.json")
+            json_data = response.read()
+            response.close()
+            response.release_conn()
+
+            return HttpResponse(json_data, content_type='application/json')
+        except Project.DoesNotExist:
+            return Response({"error": "Project not found"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)

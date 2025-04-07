@@ -16,6 +16,15 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Подгрузка шаблонизатора
+
+Выполните следующие команды в корне проекта:
+
+```bash
+git submodule init
+git submodule update
+```
+
 ## Запуск проекта
 
 1. Примените миграции:
