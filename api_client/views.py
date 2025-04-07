@@ -13,18 +13,17 @@ from django.http import HttpResponse, StreamingHttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from py_templating_engine.py_templating_engine.environment.templates_environment import TemplatesEnvironment
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .minio_client import minio_client
-from .models import CustomUser, Project
+from .models import Project
 from .permissions import IsAdminUser
 
 @extend_schema(
@@ -173,7 +172,7 @@ class UserProjectsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, email):
-        user = get_object_or_404(CustomUser, email=email)
+        user = get_object_or_404(get_user_model(), email=email)
         projects = Project.objects.filter(user=user)
         projects_data = [
             {
@@ -182,7 +181,7 @@ class UserProjectsView(APIView):
                 'project_type': project.project_type,
                 'status': project.status,
                 'file_name': project.file_name,
-                'file_id': project.file_id,
+                'file_id': project.id,
                 'created_at': project.created_at,
             }
             for project in projects
@@ -219,8 +218,8 @@ class CreateUserView(APIView):
         if not email or not firstname or not lastname or not password:
             return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = get_user_model().objects.create_user(email=email, firstname=firstname, lastname=lastname,
-                                                    password=password)
+        user = get_user_model().objects.create_user(email=email, username=email, password=password)
+        
         Token.objects.filter(user=user).delete()
         token = Token.objects.create(user=user)
 

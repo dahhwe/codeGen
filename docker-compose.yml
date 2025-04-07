@@ -7,7 +7,7 @@ services:
   postgres:
     image: postgres:15
     ports:
-      - "5432:5432"
+      - "5433:5432"
     healthcheck:
       test: [
         "CMD-SHELL",
@@ -17,9 +17,9 @@ services:
       timeout: 5s
       retries: 10
     environment:
-      - POSTGRES_DB=your_db_name
-      - POSTGRES_USER=your_db_user
-      - POSTGRES_PASSWORD=your_db_password
+      - POSTGRES_DB=codegen_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=PASSWORD
 
   minio:
     image: minio/minio
