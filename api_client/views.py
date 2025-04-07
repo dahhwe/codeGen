@@ -1,5 +1,7 @@
 import io
+import shutil
 import json
+import uuid
 import zipfile
 from pathlib import Path
 from zipfile import ZipFile
@@ -79,13 +81,13 @@ class UserLoginView(APIView):
 @method_decorator(csrf_exempt, name='dispatch')
 class ProcessTemplateView(APIView):
     permission_classes = [IsAuthenticated]
+    output_dir = None
 
     def post(self, request):
         project_id = request.query_params.get("project_id")
         if not project_id:
             return JsonResponse({"error": "Project ID is required in query parameters"}, status=400)
 
-        # Извлечение JSON из тела запроса
         try:
             context_data = request.data
             if not context_data:
@@ -109,12 +111,10 @@ class ProcessTemplateView(APIView):
             with open(template_file_path, "wb") as f:
                 f.write(template_data)
 
-            # Создаем папку с именем архива (без расширения)
-            archive_name = project.file_name.rsplit('.', 1)[0]
+            archive_name = str(uuid.uuid4())
             archive_extract_dir = template_dir / archive_name
             archive_extract_dir.mkdir(parents=True, exist_ok=True)
 
-            # Распаковка архива в новую папку
             with ZipFile(template_file_path, 'r') as zip_ref:
                 zip_ref.extractall(archive_extract_dir)
 
@@ -123,8 +123,8 @@ class ProcessTemplateView(APIView):
                 f.write(json.dumps(context_data).encode())
 
             templates_env = TemplatesEnvironment(archive_extract_dir)
-            output_dir = templates_env.render_project()
-            return self.stream_zip(output_dir)
+            self.output_dir = templates_env.render_project()
+            return self.stream_zip(self.output_dir)
 
         except Project.DoesNotExist:
             return JsonResponse({"error": "Project not found"}, status=404)
@@ -133,14 +133,21 @@ class ProcessTemplateView(APIView):
 
     def stream_zip(self, output_dir):
         def zip_generator():
-            with io.BytesIO() as zip_buffer:
-                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    for file in output_dir.rglob("*"):
-                        if file.is_file():
-                            arcname = file.relative_to(output_dir)
-                            zip_file.write(file, arcname=arcname)
-                zip_buffer.seek(0)
-                yield zip_buffer.read()
+            try:
+                with io.BytesIO() as zip_buffer:
+                    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                        for file in output_dir.rglob("*"):
+                            if file.is_file():
+                                arcname = file.relative_to(output_dir)
+                                zip_file.write(file, arcname=arcname)
+                    zip_buffer.seek(0)
+                    yield zip_buffer.read()
+            finally:
+                # Clean up after streaming is complete
+                try:
+                    shutil.rmtree(output_dir)
+                except Exception as e:
+                    print(f"Error cleaning up output directory: {e}")
 
         response = StreamingHttpResponse(zip_generator(), content_type="application/zip")
         response["Content-Disposition"] = 'attachment; filename="processed_template.zip"'
